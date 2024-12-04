@@ -1,6 +1,5 @@
 package com.rest.config;
 
-import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
@@ -15,77 +14,61 @@ import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 
 import java.util.Arrays;
-import java.util.Collections;
+import java.util.List;
 
 @Configuration
 @EnableWebSecurity
 public class AppConfig {
 
-    // Konfigurácia bezpečnostného reťazca (SecurityFilterChain)
+    // Конфигурация безопасности
     @Bean
-    SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
-        http.sessionManagement(managment -> managment.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
-                // Konfigurácia správy relácií na bezstavovú (každá požiadavka je nezávislá)
-
-                .authorizeHttpRequests(Autorize -> Autorize.requestMatchers("/api/admin/**")
-                        // Požiadavky na URL adresy začínajúce "/api/admin/**" sú povolené len pre ROLE_RESTAURANT_OWNER a ROLE_ADMIN
-                        .hasAnyRole("RESTAURANT_OWNER", "ADMIN")
-
-                        .requestMatchers("/api**")
-                        // Ostatné požiadavky na "/api**" musia byť autentifikované
-                        .authenticated()
-
-                        .anyRequest().permitAll())
-                // Ostatné požiadavky sú povolené pre všetkých
-
-                .addFilterBefore(new JwtTokenValidator(), BasicAuthenticationFilter.class)
-                // Pridáva JWT token validator pred BasicAuthenticationFilter
-
-                .csrf(AbstractHttpConfigurer::disable)
-                // Zakazuje ochranu pred CSRF útokmi
-
-                .cors(cors -> cors.configurationSource(corsConfigurationsSource()));
-        // Povolenie CORS s konfiguráciou z metódy corsConfigurationsSource()
+    public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
+        http.sessionManagement(session ->
+                        session.sessionCreationPolicy(SessionCreationPolicy.STATELESS)) // Безсессионный режим
+                .authorizeHttpRequests(authorizeRequests ->
+                        authorizeRequests
+                                .requestMatchers("/api/admin/**")
+                                .hasAnyRole("RESTAURANT_OWNER", "ADMIN") // Доступ для админов и владельцев
+                                .requestMatchers("/api/**")
+                                .authenticated() // Требуется аутентификация для других запросов
+                                .anyRequest().permitAll()) // Для всех остальных запросов доступ открыт
+                .addFilterBefore(new JwtTokenValidator(), BasicAuthenticationFilter.class) // Добавляем проверку JWT перед фильтром базовой аутентификации
+                .csrf(AbstractHttpConfigurer::disable) // Отключаем CSRF-защиту
+                .cors(cors -> cors.configurationSource(corsConfigurationsSource())); // Настроим CORS
 
         return http.build();
     }
 
-    // Konfigurácia CORS (Cross-Origin Resource Sharing)
+    // Конфигурация CORS
     private CorsConfigurationSource corsConfigurationsSource() {
-        return new CorsConfigurationSource() {
-            @Override
-            public CorsConfiguration getCorsConfiguration(HttpServletRequest request) {
-                CorsConfiguration cfg = new CorsConfiguration();
+        return request -> {
+            CorsConfiguration cfg = new CorsConfiguration();
 
-                // Povolené zdroje pre CORS
-                cfg.setAllowedOrigins(Arrays.asList(
-                        "https://zosh/food.vercel.app",
-                        "https://localhost:3000"
-                ));
+            // Разрешаем доступ с фронтенда
+            cfg.setAllowedOrigins(List.of("http://localhost:3000")); // Измените на актуальный URL вашего фронтенда
 
-                // Povolené HTTP metódy (napr. GET, POST, atď.)
-                cfg.setAllowedMethods(Collections.singletonList("*"));
+            // Разрешаем методы
+            cfg.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "DELETE", "OPTIONS"));
 
-                // Povolenie zdieľania poverení (cookies, autorizačné hlavičky, atď.)
-                cfg.setAllowCredentials(true);
+            // Разрешаем заголовки
+            cfg.setAllowedHeaders(Arrays.asList("Authorization", "Content-Type"));
 
-                // Povolené hlavičky v požiadavkách
-                cfg.setAllowedHeaders(Collections.singletonList("*"));
+            // Разрешаем отправку куки и заголовков авторизации
+            cfg.setAllowCredentials(true);
 
-                // Hlavičky, ktoré budú vystavené v odpovediach
-                cfg.setExposedHeaders(Arrays.asList("Authorization"));
+            // Заголовки, которые будут возвращаться
+            cfg.setExposedHeaders(List.of("Authorization"));
 
-                // Nastavenie max. veku (v sekundách) pre uloženie výsledkov CORS prehliadačom
-                cfg.setMaxAge(3600L);
+            // Максимальное время кэширования
+            cfg.setMaxAge(3600L); // 1 час
 
-                return cfg;
-            }
+            return cfg;
         };
     }
 
-    // Konfigurácia enkodéra hesiel na BCryptPasswordEncoder
+    // Бин для кодирования паролей
     @Bean
-    PasswordEncoder passwordEncoder() {
+    public PasswordEncoder passwordEncoder() {
         return new BCryptPasswordEncoder();
     }
 }

@@ -1,6 +1,5 @@
 package com.rest.controller;
 
-
 import com.rest.config.JwtProvider;
 import com.rest.model.Cart;
 import com.rest.model.USER_ROLE;
@@ -17,15 +16,13 @@ import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.GrantedAuthority;
-import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
-
-import java.util.Collection;
+import org.springframework.web.server.ResponseStatusException;
 
 @RestController
 @RequestMapping("/auth")
@@ -42,17 +39,17 @@ public class AuthController {
     private CartRepository cartRepository;
 
     @PostMapping("/signup")
-    public ResponseEntity<AuthResponce> createUserHandle(@RequestBody User user) throws Exception {
-        User isEmail = usersRepository.findByEmail(user.getEmail());
-
-        if (isEmail != null) {
-            throw new Exception("Email is already used with another account");
+    public ResponseEntity<AuthResponce> createUserHandle(@RequestBody User user) {
+        if (usersRepository.findByEmail(user.getEmail()).isPresent()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Email is already used with another account");
         }
+
+        USER_ROLE role = user.getRole() != null ? user.getRole() : USER_ROLE.ROLE_CUSTOMER;
 
         User createdUser = new User();
         createdUser.setEmail(user.getEmail());
-        createdUser.setEmail(user.getFullname());
-        createdUser.setRole(user.getRole());
+        createdUser.setFullname(user.getFullname());
+        createdUser.setRole(role);
         createdUser.setPassword(passwordEncoder.encode(user.getPassword()));
 
         User savedUser = usersRepository.save(createdUser);
@@ -61,44 +58,52 @@ public class AuthController {
         cart.setUser(savedUser);
         cartRepository.save(cart);
 
-        Authentication authentication = new UsernamePasswordAuthenticationToken(user.getEmail(), user.getPassword());
-        SecurityContextHolder.getContext().setAuthentication(authentication);
-
+        Authentication authentication = authenticate(user.getEmail(), user.getPassword());
         String jwt = jwtProvider.generateToken(authentication);
 
-        AuthResponce authResponce = new AuthResponce();
+        AuthResponce authResponce = new AuthResponce(jwt, savedUser.getRole(), "Register success");
         authResponce.setJwt(jwt);
         authResponce.setMessage("Register success");
         authResponce.setRole(savedUser.getRole());
 
         return new ResponseEntity<>(authResponce, HttpStatus.CREATED);
-
     }
 
     @PostMapping("/signin")
     public ResponseEntity<AuthResponce> signin(@RequestBody LoginRequest req) {
-        String username = req.getEmail();
-        String pass = req.getPassword();
+        Authentication authentication = authenticate(req.getEmail(), req.getPassword());
 
-        Authentication authentication = authenticate(username, pass);
+        try {
+            // Проверка на специальный логин и пароль для администратора
+            if ("admin@gmail.com".equals(req.getEmail()) && "admin123+".equals(req.getPassword())) {
+                AuthResponce adminResponse = new AuthResponce("Admin login success", USER_ROLE.ROLE_ADMIN, null);
+                adminResponse.setMessage("Welcome, Admin!");
+                adminResponse.setRole(USER_ROLE.ROLE_ADMIN);
+                String jwt = jwtProvider.generateToken(authentication);
+                AuthResponce authResponce = new AuthResponce("Admin login success", USER_ROLE.ROLE_ADMIN, jwt);
 
-        Collection<? extends GrantedAuthority> authorities = authentication.getAuthorities();
-        String role = authorities.isEmpty() ? null : authorities.iterator().next().getAuthority();
+                return new ResponseEntity<>(authResponce, HttpStatus.OK);
+            }
 
-        String jwt = jwtProvider.generateToken(authentication);
+            // Стандартный процесс аутентификации
 
-        AuthResponce authResponce = new AuthResponce();
-        authResponce.setJwt(jwt);
-        authResponce.setMessage("Login success");
+            String role = authentication.getAuthorities().stream()
+                    .findFirst()
+                    .map(GrantedAuthority::getAuthority)
+                    .orElse(null);
 
+            String jwt = jwtProvider.generateToken(authentication);
 
-        authResponce.setRole(USER_ROLE.valueOf(role));
-
-        return new ResponseEntity<>(authResponce, HttpStatus.OK);
+            AuthResponce authResponce = new AuthResponce("Login success", USER_ROLE.valueOf(role), jwt);
+            return new ResponseEntity<>(authResponce, HttpStatus.OK);
+        } catch (BadCredentialsException ex) {
+            AuthResponce authResponce = new AuthResponce("Invalid email or password");
+            authResponce.setError("Invalid email or password");
+            return new ResponseEntity<>(authResponce, HttpStatus.UNAUTHORIZED);
+        }
     }
 
     private Authentication authenticate(String username, String pass) {
-
         UserDetails userDetails = customUserDetailsService.loadUserByUsername(username);
 
         if (userDetails == null) {
@@ -110,6 +115,5 @@ public class AuthController {
         }
 
         return new UsernamePasswordAuthenticationToken(userDetails, null, userDetails.getAuthorities());
-
     }
 }

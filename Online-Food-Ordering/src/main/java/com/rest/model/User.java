@@ -23,13 +23,14 @@ public class User {
 
     private String fullname;
     private String email;
+
     @JsonProperty(access = JsonProperty.Access.WRITE_ONLY)
     private String password;
 
     private USER_ROLE role = USER_ROLE.ROLE_CUSTOMER;
 
     @JsonIgnore
-    @OneToMany(cascade = CascadeType.ALL, mappedBy = "customer")
+    @OneToMany(cascade = CascadeType.ALL, mappedBy = "user")  // Исправлено на "user"
     private List<Order> orders = new ArrayList<>();
 
     @ElementCollection
@@ -37,6 +38,4 @@ public class User {
 
     @OneToMany(cascade = CascadeType.ALL, orphanRemoval = true)
     private List<Address> addresses = new ArrayList<>();
-
-
 }

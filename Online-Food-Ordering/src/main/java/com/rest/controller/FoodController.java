@@ -10,6 +10,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.ArrayList;
 import java.util.List;
 
 @RestController
@@ -23,32 +24,63 @@ public class FoodController {
     @Autowired
     private RestaurantService restaurantService;
 
+    // Класс для обработки ошибок
+    public static class ErrorResponse {
+        private String message;
+
+        public ErrorResponse(String message) {
+            this.message = message;
+        }
+
+        // Геттер и сеттер
+        public String getMessage() {
+            return message;
+        }
+
+        public void setMessage(String message) {
+            this.message = message;
+        }
+    }
+
     @GetMapping("/search")
-    public ResponseEntity<List<Food>> searchFood(@RequestParam String keyword,
-                                                 @RequestHeader("Authorization") String jwt) throws Exception {
-        User user = userService.findUserByJwtToken(jwt);
+    public ResponseEntity<?> searchFood(@RequestParam String keyword,
+                                        @RequestHeader("Authorization") String jwt) {
+        try {
+            // Попытка найти пользователя по JWT
+            User user = userService.findUserByJwtToken(jwt);
 
-        List<Food> foods = foodService.searchFood(keyword);
+            // Поиск еды
+            List<Food> foods = foodService.searchFood(keyword);
 
-
-        return new ResponseEntity<>(foods, HttpStatus.CREATED);
-
+            // Возвращаем список еды
+            return new ResponseEntity<>(foods, HttpStatus.OK);
+        } catch (Exception e) {
+            // В случае ошибки возвращаем объект с ошибкой
+            ErrorResponse errorResponse = new ErrorResponse("Произошла ошибка при поиске еды.");
+            return new ResponseEntity<>(errorResponse, HttpStatus.BAD_REQUEST);
+        }
     }
 
     @GetMapping("/restaurant/{restaurantId}")
-    public ResponseEntity<List<Food>> getRestaurantFood(@PathVariable Long restaurantId,
-                                                        @RequestParam boolean vegeterian,
-                                                        @RequestParam boolean seasonal,
-                                                        @RequestParam boolean nonveg,
-                                                        @RequestParam(required = false) String food_category,
+    public ResponseEntity<?> getRestaurantFood(@PathVariable Long restaurantId,
+                                               @RequestParam boolean vegeterian,
+                                               @RequestParam boolean seasonal,
+                                               @RequestParam boolean nonveg,
+                                               @RequestParam(required = false) String food_category,
+                                               @RequestHeader("Authorization") String jwt) {
+        try {
+            // Попытка найти пользователя по JWT
+            User user = userService.findUserByJwtToken(jwt);
 
-                                                        @RequestHeader("Authorization") String jwt) throws Exception {
-        User user = userService.findUserByJwtToken(jwt);
+            // Получение еды ресторана
+            List<Food> foods = foodService.getRestaurantsFood(restaurantId, vegeterian, nonveg, seasonal, food_category);
 
-        List<Food> foods = foodService.getRestaurantsFood(restaurantId, vegeterian, nonveg, seasonal, food_category);
-
-
-        return new ResponseEntity<>(foods, HttpStatus.OK);
-
+            // Возвращаем список еды
+            return new ResponseEntity<>(foods, HttpStatus.OK);
+        } catch (Exception e) {
+            // В случае ошибки возвращаем объект с ошибкой
+            ErrorResponse errorResponse = new ErrorResponse("Произошла ошибка при получении еды из ресторана.");
+            return new ResponseEntity<>(errorResponse, HttpStatus.BAD_REQUEST);
+        }
     }
 }
