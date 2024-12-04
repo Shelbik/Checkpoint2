@@ -1,4 +1,4 @@
-import { Modal, Box, MenuItem } from "@mui/material"; // Импортируйте Box и MenuItem
+import { Modal, Box, MenuItem } from "@mui/material";
 import React from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import RegisterForm from "./Register";
