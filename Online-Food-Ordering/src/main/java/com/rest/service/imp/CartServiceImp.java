@@ -31,7 +31,7 @@ public class CartServiceImp implements CartService {
     public CartItem addItemToCart(AddCartItemRequest req, String jwt) throws Exception {
         User user = userService.findUserByJwtToken(jwt);
         Food food = foodService.findFoodById(req.getFoodId());
-        Cart cart = cartRepository.findByCustomerId(user.getId());
+        Cart cart = cartRepository.findByUserId(user.getId());
 
         for (CartItem cartItem : cart.getCartItems()) {
             if (cartItem.getFood().equals(food)) {
@@ -68,7 +68,7 @@ public class CartServiceImp implements CartService {
     @Override
     public Cart removeItemFromCart(long cartItemId, String jwt) throws Exception {
         User user = userService.findUserByJwtToken(jwt);
-        Cart cart = cartRepository.findByCustomerId(user.getId());
+        Cart cart = cartRepository.findByUserId(user.getId());
 
         Optional<CartItem> cartItem = cartItemRepository.findById(cartItemId);
         if (cartItem.isEmpty()) {
@@ -99,7 +99,7 @@ public class CartServiceImp implements CartService {
 
     @Override
     public Cart findCartByUserId(Long userId) {
-        Cart cart = cartRepository.findByCustomerId(userId);
+        Cart cart = cartRepository.findByUserId(userId);
         cart.setTotal(calculateCartTotal(cart));
         return cart;
     }

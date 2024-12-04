@@ -29,11 +29,12 @@ public class AdminOrderController {
     }
 
 
-    @PutMapping("/order/{orderId}/{orderStatus")
-    public ResponseEntity<Order> updateOrderStatus(@PathVariable long id, @PathVariable String orderStaus, @RequestHeader("Authorization") String jwt) throws Exception {
+    @PutMapping("/order/{orderId}/{orderStatus}")
+    public ResponseEntity<Order> updateOrderStatus(@PathVariable long orderId, @PathVariable String orderStatus, @RequestHeader("Authorization") String jwt) throws Exception {
         User user = userService.findUserByJwtToken(jwt);
-        Order order = orderService.updateOrder(id, orderStaus);
+        Order order = orderService.updateOrder(orderId, orderStatus);  // Здесь используется orderId и orderStatus
         return new ResponseEntity<>(order, HttpStatus.OK);
     }
+
 
 }

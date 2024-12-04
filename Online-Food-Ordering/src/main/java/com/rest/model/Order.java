@@ -20,6 +20,7 @@ public class Order {
     private Long id;
 
     @ManyToOne
+    @JoinColumn(name = "user_id") // Явно указываем имя столбца
     private User user;
 
     @ManyToOne
@@ -40,6 +41,4 @@ public class Order {
 
     private int totalItem;
     private long totalPrice;
-//    private Payment payment;
-
 }
